@@ -79,7 +79,8 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
         this.assert(span.dataset.part===owners.get(+el.dataset.id),'Word belongs to expected clause');
         this.assert(span.dataset.color===mapping[span.dataset.part],'Student-chosen color');
         const fill=getComputedStyle(span).backgroundColor;
-        this.assert(fill.startsWith('rgba(')&&Number(fill.split(',').at(-1).replace(')',''))<0.1, 'Translucent pastel: '+fill);
+        const alpha=Number(fill.split(',').at(-1).replace(')',''));
+        this.assert(fill.startsWith('rgba(')&&alpha>=0.18&&alpha<=0.24, 'Translucent pastel: '+fill);
       }
       return {id:l.id,kind:l.kind};
     },

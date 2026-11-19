@@ -240,7 +240,7 @@
       if(highlight && mapping[part] && (part!==previousPart || !fragment)){
         fragment=document.createElement('span');fragment.className='clause-highlight';fragment.dataset.part=part;
         fragment.dataset.color=mapping[part];
-        fragment.style.setProperty('--clause-fill',colors[mapping[part]].tone+'12');
+        fragment.style.setProperty('--clause-fill',colors[mapping[part]].tone+'33');
         target.append(fragment);
       }
       previousPart=part;
