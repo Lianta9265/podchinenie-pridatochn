@@ -69,13 +69,19 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
       }
       if(l.id==='oge38519'){
         const id=d.tokens().find(t=>t.value==='нет').id;
-        this.assert(!keys.bases.some(([baseId])=>baseId===id),'No invented key for ellipsis');
-        this.assert(document.getElementById('instruction').textContent.includes('преподавателем'),'Ellipsis guidance');
+        this.assert(keys.bases.some(([baseId,b])=>baseId===id&&b.role==='one'&&b.partId==='a'),'Net is the one-member predicate');
+        this.click('[data-color="'+mapping.a+'"]');this.click('[data-role="p"]');this.click('#sentence [data-id="'+id+'"]');this.click('#check-marking-top');
+        this.assert(d.getState().step===1&&!document.querySelector('.clause-highlight'),'Missing net rejected');
         this.click('[data-color="'+mapping.a+'"]');this.click('[data-role="p"]');this.click('#sentence [data-id="'+id+'"]');
-        this.assert(!d.getState().basisMarks.has(id),'Elliptic element is explained, not marked as predicate');
+        this.click('[data-role="s"]');this.click('#sentence [data-id="'+id+'"]');this.click('#check-marking-top');
+        this.assert(d.getState().step===1,'Single underline for net rejected');
+        this.click('[data-role="p"]');this.click('#sentence [data-id="'+id+'"]');
+        this.click('[data-color="'+mapping.m+'"]');this.click('#sentence [data-id="'+id+'"]');this.click('#check-marking-top');
+        this.assert(d.getState().step===1,'Wrong predicate color rejected');
+        this.click('[data-color="'+mapping.a+'"]');this.click('#sentence [data-id="'+id+'"]');
         const linkId=keys.links.find(([,link])=>link.part==='a')[0];
         this.click('#back-to-conjunctions');this.click('[data-color="'+mapping.m+'"]');this.click('#sentence [data-id="'+linkId+'"]');this.click('#go-to-bases');this.click('#check-marking-top');
-        this.assert(d.getState().step===1&&!document.querySelector('.clause-highlight'),'Elliptic clause requires a distinct chosen color');
+        this.assert(d.getState().step===1&&!document.querySelector('.clause-highlight'),'Conjunction and net must share a color');
         this.click('#back-to-conjunctions');this.click('[data-color="'+mapping.a+'"]');this.click('#sentence [data-id="'+linkId+'"]');this.click('#go-to-bases');
       }
       if(l.id==='oge28539'){
@@ -162,15 +168,15 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
       await evaluate(`document.getElementById('solution').scrollIntoView({behavior:'instant'});true`);
       fs.writeFileSync(path.join(out,'desktop-oge28539-solution.png'),Buffer.from((await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
     }
-    if(id==='oge38519')await evaluate(`qa.assert(document.querySelector('.teacher-note').textContent.includes('эллипсис'),'Teacher ellipsis explanation');qa.assert(NITI_DIAGNOSTICS.getLesson().text.startsWith('Если нет, то'),'Original ellipse unchanged');true`);
+    if(id==='oge38519')await evaluate(`(()=>{const d=NITI_DIAGNOSTICS,id=d.tokens().find(t=>t.value==='нет').id,linkId=d.getKeys().links.find(([,l])=>l.part==='a')[0],el=document.querySelector('#sentence [data-id="'+id+'"]');qa.assert(el.classList.contains('role-p'),'Net uses double underline');qa.assert(getComputedStyle(el,'::before').height==='4px'&&getComputedStyle(el,'::after').height==='4px','Both underline strokes visible');qa.assert(d.getState().basisMarks.get(id).color===d.getState().linkMarks.get(linkId).color,'Net and if share student color');qa.assert(d.getLesson().text.startsWith('Если нет, то'),'Original text unchanged');qa.assert(!document.querySelector('.teacher-note'),'No obsolete marking exemption');return true;})()`);
     if(['oge28720','oge38422','oge38609','oge28539'].includes(id))await evaluate(`qa.assert(document.querySelector('.exam-answer').textContent.includes('— неверно'),'False original assertion explained only after answer');true`);
   }
   await evaluate(`qa.assert(document.getElementById('progress').textContent==='10/10','Ten of ten progress');qa.click('#repeat-errors');qa.assert(document.querySelectorAll('.lesson-item').length===3,'OGE error review');qa.click('#repeat-errors');true`);
-  // Both modes work on every exam card, including the separate main root and ellipsis.
+  // Both modes work on every exam card, including the separate main root and one-member predicate.
   for(const id of ogeIds){
     await evaluate(`qa.select('${id}');qa.click('#mode-demo');qa.click('#check-button');qa.click('#check-button');qa.click('#check-button');qa.assert(document.querySelector('.clause-highlight'),'Demo highlights for ${id}');qa.assert(document.querySelectorAll('.clause-card').length===NITI_DIAGNOSTICS.getKeys().edges.length,'Demo board for ${id}');qa.click('#mode-play');true`);
   }
-  console.log('PASS: all 10 OGE exercises, real dependency threads, corrected quantity subject, mixed structure, ellipsis and both modes.');
+  console.log('PASS: all 10 OGE exercises, real dependency threads, quantity subject, mixed structure, one-member predicate and both modes.');
   for(const id of ['oge28539','oge38519']){
     await evaluate(`qa.select('${id}');qa.mark();qa.connect();true`);await sleep(650);
     await evaluate(`document.querySelector('.drag-handle').scrollIntoView({behavior:'instant',block:'center'});true`);await sleep(80);

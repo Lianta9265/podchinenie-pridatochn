@@ -42,8 +42,10 @@ assert.deepEqual(Array.from(get(28539).edges,e=>e.parent),['m','c']);
 assert.deepEqual(bases(38519,'m'),[['предположение','s'],['напрашивается','p']]);
 assert.deepEqual(bases(38519,'b'),[['свечение','s'],['отпугивает','p'],['приманивает','p']]);
 assert.equal(get(38519).kind,'parallel');
-assert.equal(get(38519).parts.find(p=>p.id==='a').base.length,0);
-assert(get(38519).parts.find(p=>p.id==='a').basisReview.explanation.includes('эллипсис'));
+assert.deepEqual(bases(38519,'a'),[['нет','one']]);
+assert.equal(get(38519).parts.find(p=>p.id==='a').basisReview,undefined);
+assert.deepEqual(Array.from(get(38519).links,r=>[r.w,r.part]),[['Если','a'],['что','b']]);
+assert.deepEqual(Array.from(get(38519).edges,r=>[r.target,r.from.w,r.question]),[['a','напрашивается','при каком условии?'],['b','предположение','какое?']]);
 for(const id of [28720,38422,38609])assert.equal(get(id).kind,'sequential');
 const all=[...original,...oge];
 assert.equal(new Set(all.map(l=>l.id)).size,all.length);
@@ -76,4 +78,4 @@ for(const l of all){
 assert.equal(original[0].fragments.filter(f=>f.part==='a').length,2);
 assert.equal(original[1].fragments.filter(f=>f.part==='m').length,3);
 assert.equal(oge.find(l=>l.id==='oge38560').fragments.filter(f=>f.part==='a').length,2);
-console.log('PASS: unchanged original bank and four approved OGE keys; all 10 OGE cards, quantity subject, mixed parents, ellipsis and complete fragment ownership.');
+console.log('PASS: unchanged original bank and four approved OGE keys; all 10 OGE cards, quantity subject, mixed parents, one-member predicate and complete fragment ownership.');
