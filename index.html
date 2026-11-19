@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fff9e7">
+  <title>Нити смысла — подчинение нескольких придаточных</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" aria-label="Навигация по тренажёру">
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true">
+        <svg viewBox="0 0 60 60" width="60" height="60">
+          <path d="M12 20C20 6 38 10 42 22S29 43 21 32 29 13 47 40" fill="none" stroke="#fff5d8" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="12" cy="20" r="6" fill="#f9b657"/><circle cx="47" cy="40" r="6" fill="#6adbd0"/>
+        </svg>
+      </div>
+      <div><div class="brand-title">Нити смысла</div><div class="brand-subtitle">Подчинение придаточных · ОГЭ</div></div>
+    </div>
+    <div class="side-label">Режим занятия</div>
+    <div class="mode-buttons" role="group" aria-label="Режим занятия">
+      <button id="mode-play" class="mode-btn active" type="button"><span>🧩</span> Самостоятельно</button>
+      <button id="mode-demo" class="mode-btn" type="button"><span>✦</span> Объясняем вместе</button>
+    </div>
+    <div class="filter-block">
+      <label for="kind-filter" class="side-label">Что тренируем?</label>
+      <select id="kind-filter" class="kind-filter" aria-label="Выбери вид подчинения">
+        <option value="all">Всё вперемешку</option>
+        <option value="sequential">Последовательное</option>
+        <option value="parallel">Параллельное</option>
+        <option value="homogeneous">Однородное</option>
+      </select>
+      <button type="button" id="reshuffle" class="shuffle-btn">⤨ Перемешать ещё раз</button>
+    </div>
+    <div class="side-section-heading"><span>Предложения</span><span id="progress" class="progress-num">0</span></div>
+    <div id="lesson-list" class="lesson-list" aria-label="Список заданий"></div>
+    <button id="special-lesson" type="button" class="special-lesson">✦ Особый случай · разбор с учителем</button>
+    <div class="sidebar-bottom">
+      <button id="repeat-errors" class="quiet-btn" type="button">↺ Повторить ошибки</button>
+      <button id="rules-open" class="quiet-btn" type="button">ⓘ Правила</button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div class="topbar">
+      <div><span id="section-label" class="eyebrow">Задание 1</span><h1>Распутай предложение</h1></div>
+      <div class="top-actions"><button id="prev-lesson" class="top-nav" type="button" aria-label="Предыдущее предложение">←</button><button id="next-lesson" class="top-nav" type="button" aria-label="Следующее предложение">→</button><button id="rules-main" class="small-rule" type="button">Правила</button></div>
+    </div>
+    <div id="steps" class="steps" aria-label="Этапы разбора"></div>
+    <div id="instruction" class="instruction" role="status"></div>
+    <button id="scheme-jump" class="scheme-jump" type="button" hidden>Перейти к схемам ↓</button>
+    <section id="work-area" class="work-area" aria-label="Разбор предложения">
+      <div class="sentence-head"><span>Предложение</span><span id="level-label" class="level-label"></span></div>
+      <div id="color-tools" class="color-tools" hidden></div>
+      <div class="sentence-box"><div id="sentence" class="sentence-text"></div></div>
+      <div id="legend" class="legend"></div>
+      <div id="thread-zone" class="thread-zone" hidden>
+        <div class="thread-zone-head"><span>Ниточки зависимости</span><span class="drag-hint">Узелки можно передвигать за <span aria-hidden="true">⠿</span></span></div>
+        <div id="thread-board" class="thread-board"></div>
+      </div>
+      <svg id="threads-svg" class="threads-svg" aria-hidden="true"></svg>
+    </section>
+    <section id="solution" class="solution" hidden></section>
+    <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
+    <div class="bottom-bar">
+      <div id="answer-area" class="answer-area"></div>
+      <div class="bottom-buttons">
+        <button id="clear-step" class="btn btn-outline" type="button">Очистить шаг</button>
+        <button id="check-button" class="btn btn-primary" type="button">Проверить <span aria-hidden="true">✓</span></button>
+      </div>
+    </div>
+  </main>
+</div>
+<dialog id="rules-dialog" class="rules-dialog">
+  <div class="dialog-head"><h2>Как распутывать СПП</h2><button id="rules-close" class="dialog-close" type="button" aria-label="Закрыть">×</button></div>
+  <ol>
+    <li><strong>Грамматические основы.</strong> Выбери один из пяти цветных маркеров. Нажми на слово: выбери инструмент «Подлежащее» или «Сказуемое», затем нажми на слово один раз. Подлежащее сразу получит одну черту, сказуемое — две. Повторное нажатие тем же инструментом снимает подчёркивание. Если предложение односоставное, обозначь главный член. Каждой основе назначь отдельный цвет, в том числе при разрыве её слов другими частями.</li>
+    <li><strong>Средства связи.</strong> После выделения основ нажми «Выдели подчинительные союзы» — проверки пока нет. Выбирай маркер цвета нужного придаточного и заключай подчинительные союзы и союзные слова в овальчики. Только после этого проверь оба выделения одной кнопкой. Для «как только» нажатие выделяет весь союз. Для сочетаний с предлогом допустимы оба ответа: «который» или «в который», «которой» или «у которой» и т. п. Нажми на союзное слово, чтобы выделить только его, либо на предлог, чтобы обвести всё сочетание.</li>
+    <li><strong>Нити (дополнительный шаг).</strong> После проверки обоих выделений при желании открой ниточки, нажми на конкретное опорное слово в тексте, затем — на карточку придаточной части. Нить сама протянется между ними. Конец нити можно переставить, сделав новую связь.</li>
+    <li><strong>Схема.</strong> После проверки выделения выбери один из трёх рисунков с кружочками и стрелками — внимательно смотри, откуда выходят стрелки.</li>
+    <li><strong>Фильтры.</strong> В левой панели можно тренировать только последовательное, параллельное или однородное подчинение либо перемешать все карточки. Прогресс сохраняется при переключении.</li>
+    <li><strong>Вид подчинения.</strong> Вместе со схемой назови вид подчинения, затем проверь оба ответа.</li>
+  </ol>
+  <div class="rule-callout"><strong>Важно:</strong> при параллельном подчинении придаточные иногда отвечают на один вопрос, но относятся к <em>разным словам</em> главной части. Ищи начало каждой ниточки!</div>
+  <p>В режиме «Объясняем вместе» шаги можно раскрывать постепенно. Кнопка «Показать решение» не засчитывает самостоятельное выполнение.</p>
+  <div class="dialog-actions"><button id="rules-ok" class="btn btn-primary" type="button">Понятно</button></div>
+</dialog>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
