@@ -9,7 +9,7 @@
     d: {tone:'#377DD8',pale:'#DCEBFF',dark:'#19539B',name:'Синий'}
   };
   const names = {sequential:'Последовательное', parallel:'Параллельное', homogeneous:'Однородное'};
-  const stepTitles = ['Выдели основы','Выдели союзы','Подбери схему'];
+  const stepTitles = ['Выдели союзы','Выдели основы','Схема и ниточки'];
   const $ = id => document.getElementById(id);
   const html = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const storageKey = 'niti-smysla-oge-v5';
@@ -86,7 +86,7 @@
   }
   function basisMark(id) {
     if(mode==='demo' || state.revealed) {
-      if(state.demoStage<1 && !state.demoBasis.has(id) && !state.revealed)return null;
+      if(state.demoStage<2 && !state.demoBasis.has(id) && !state.revealed)return null;
       const expected=basisMap.get(id);
       return expected ? {role:expected.role==='s'?'s':'p',color:expected.partId} : null;
     }
@@ -94,7 +94,7 @@
   }
   function linkMark(id) {
     if(mode==='demo' || state.revealed) {
-      if(state.demoStage<2 && !state.demoLinks.has(id) && !state.revealed)return null;
+      if(state.demoStage<1 && !state.demoLinks.has(id) && !state.revealed)return null;
       const expected=linksMap.get(id);
       return expected ? {color:expected.part} : null;
     }
@@ -134,17 +134,17 @@
   function renderInstruction() {
     const st=currentStep();
     const messages = mode==='demo' ? [
-      'Покажи, как выделяются основы: одна черта — подлежащее, две — сказуемое. Разорванные слова одной основы одного цвета.',
-      'Теперь выдели подчинительные союзы и союзные слова овальчиками того же цвета, что основы придаточных.',
-      'Покажи, как от опорных слов тянутся нити. Затем сравни графические схемы и обсуди вид подчинения.',
-      'Разбор завершён: проверьте схему и объясните связи между частями.'
+      'Выдели подчинительные союзы и союзные слова разными цветами.',
+      'Выдели грамматические основы: цвет каждой придаточной части — как у её союза или союзного слова.',
+      'Подбери схему и определи вид подчинения. При необходимости распутай ниточки и задай вопросы.',
+      'Разбор завершён. Объясни связи между частями.'
     ] : [
-      'Выбери цвет и инструмент: «Подлежащее —» или «Сказуемое ═». Каждое нажатие на слово СРАЗУ рисует одну или две черты. У разных основ — разные цвета. Затем нажми «Выдели подчинительные союзы».',
-      'Теперь нажимай на подчинительные союзы и союзные слова: они заключаются в овальчик выбранного цвета. Цвет овальчика совпадает с цветом основы своей придаточной части. Затем нажми «Проверить выделение».',
-      'Выделение проверено! Выбери подходящую схему с кружочками и стрелками, а ниже — вид подчинения. По желанию можно распутать ниточки.',
-      state.revealed?'Открыт разбор преподавателя.':'Готово! Осмотри готовую схему и объяснение.'
+      'Выдели подчинительные союзы и союзные слова разными цветами.',
+      'Выдели грамматические основы. Цвет каждой придаточной части должен совпадать с цветом её союза или союзного слова.',
+      'Подбери схему и определи вид подчинения. При необходимости распутай ниточки и задай вопросы к придаточным.',
+      state.revealed?'Открыт разбор преподавателя.':'Готово! Проверь схему и объяснение.'
     ];
-    $('instruction').textContent=lessons[lessonIndex].teacherReview?'Особый пример для разбора с учителем. Его содержание сохранено по скриншоту; грамматическая основа части «Когда у меня в руках новая книга» требует методического уточнения, поэтому здесь нет автоматической проверки. Переходи по шагам показа.':messages[Math.min(st,messages.length-1)];
+    $('instruction').textContent=lessons[lessonIndex].teacherReview?'Особый пример для разбора с учителем. Автоматическая проверка основ в нём отключена.':messages[Math.min(st,messages.length-1)];
   }
   function renderNextPrompt() {
     const btn=$('scheme-jump');
@@ -152,16 +152,16 @@
     btn.hidden=!ready;
     if(ready)btn.textContent='✓ Выделение верное — перейти к схемам и виду подчинения ↓';
   }
-  function goToConjunctions() {
+  function goToBases() {
     if(mode!=='play' || state.step!==0 || state.revealed)return;
     state.step=1;state.activeColor=null;
-    feedback={text:'Основы пока не проверяются и остаются подчёркнутыми. Теперь выбери цвет основы нужного придаточного и обведи его подчинительный союз или союзное слово.',type:''};
+    feedback={text:'Теперь выдели основы. Используй для каждого придаточного цвет его союза или союзного слова. Главной части выбери отдельный цвет.',type:''};
     render();
   }
-  function backToBases() {
+  function backToConjunctions() {
     if(mode!=='play'||state.step!==1)return;
     state.step=0;state.activeColor=null;
-    feedback={text:'Можно исправлять подчёркивания. Уже выделенные овальчики не пропали.',type:''};
+    feedback={text:'Можно исправить союзы. Уже выделенные основы сохранятся.',type:''};
     render();
   }
   function renderColorTools() {
@@ -169,19 +169,19 @@
     const show=mode==='play' && st<=1 && !state.revealed;
     el.hidden=!show;
     if(!show){el.innerHTML='';return;}
-    el.innerHTML=`<div class="palette-row"><strong>Выбери цвет основы</strong><div class="palette-buttons">${paletteKeys.map(k=>`<button type="button" class="marker-btn ${state.activeColor===k?'active':''}" style="--marker:${colors[k].tone}" data-color="${k}" aria-label="${colors[k].name}" aria-pressed="${state.activeColor===k}"><span class="marker-dot"></span><span>${colors[k].name}</span></button>`).join('')}</div></div>
-      ${st===0?`<div class="grammar-tools" role="group" aria-label="Выбери способ подчёркивания"><span class="grammar-tools-label">Как подчеркнуть слово?</span><button type="button" data-role="s" class="grammar-btn ${state.activeRole==='s'?'active':''}" aria-pressed="${state.activeRole==='s'}"><span class="syntax-example single">Подлежащее</span><span class="syntax-caption">1 черта</span></button><button type="button" data-role="p" class="grammar-btn ${state.activeRole==='p'?'active':''}" aria-pressed="${state.activeRole==='p'}"><span class="syntax-example double">Сказуемое</span><span class="syntax-caption">2 черты</span></button></div>`:''}
-      <div class="palette-help"><span>${state.activeColor?'Маркер: '+colors[state.activeColor].name.toLowerCase():'Выбери любой маркер'}</span><span>${st===0?(state.activeRole?'Теперь нажми на слово: нужное подчёркивание появится сразу. Повторное нажатие снимет его.':'Затем выбери «Подлежащее» или «Сказуемое».'):'Нажми на союз — он сразу окажется в цветном овальчике.'}</span></div>
-      <div class="grammar-actions">${st===0?'<button type="button" id="go-to-conjunctions" class="btn btn-primary grammar-next">Выдели подчинительные союзы →</button>':'<button type="button" id="back-to-bases" class="btn btn-outline">← Вернуться к основам</button><button type="button" id="check-marking-top" class="btn btn-primary grammar-next">Проверить выделение ✓</button>'}</div>`;
+    el.innerHTML=`<div class="palette-row"><strong>Выбери цвет</strong><div class="palette-buttons">${paletteKeys.map(k=>`<button type="button" class="marker-btn ${state.activeColor===k?'active':''}" style="--marker:${colors[k].tone}" data-color="${k}" aria-label="${colors[k].name}" aria-pressed="${state.activeColor===k}"><span class="marker-dot"></span><span>${colors[k].name}</span></button>`).join('')}</div></div>
+      ${st===1?`<div class="grammar-tools" role="group" aria-label="Выбери инструмент"><span class="grammar-tools-label">Инструмент</span><button type="button" data-role="s" class="grammar-btn ${state.activeRole==='s'?'active':''}" aria-pressed="${state.activeRole==='s'}"><span class="syntax-example single">Подлежащее</span><span class="syntax-caption">1 черта</span></button><button type="button" data-role="p" class="grammar-btn ${state.activeRole==='p'?'active':''}" aria-pressed="${state.activeRole==='p'}"><span class="syntax-example double">Сказуемое</span><span class="syntax-caption">2 черты</span></button></div>`:''}
+      <div class="palette-help"><span>${state.activeColor?'Маркер: '+colors[state.activeColor].name.toLowerCase():'Выбери маркер'}</span><span>${st===0?'Нажми на подчинительный союз или союзное слово.':state.activeRole?'Нажми на слово в предложении.':'Выбери «Подлежащее» или «Сказуемое».'}</span></div>
+      <div class="grammar-actions">${st===0?'<button type="button" id="go-to-bases" class="btn btn-primary grammar-next">Выдели грамматические основы →</button>':'<button type="button" id="back-to-conjunctions" class="btn btn-outline">← Вернуться к союзам</button><button type="button" id="check-marking-top" class="btn btn-primary grammar-next">Проверить выделение ✓</button>'}</div>`;
     el.querySelectorAll('[data-color]').forEach(btn=>btn.addEventListener('click',()=>{
       state.activeColor=btn.dataset.color;renderColorTools();
     }));
     el.querySelectorAll('[data-role]').forEach(btn=>btn.addEventListener('click',()=>{
       state.activeRole=btn.dataset.role;renderColorTools();
     }));
-    if(st===0)$('go-to-conjunctions').addEventListener('click',goToConjunctions);
+    if(st===0)$('go-to-bases').addEventListener('click',goToBases);
     else{
-      $('back-to-bases').addEventListener('click',backToBases);
+      $('back-to-conjunctions').addEventListener('click',backToConjunctions);
       $('check-marking-top').addEventListener('click',checkStep);
     }
   }
@@ -202,7 +202,7 @@
         el.style.setProperty('--link-pale',colors[lmark.color]?.pale||colors.a.pale);
       }
       // Ошибки показываем текстом, НЕ прямоугольниками вокруг слов.
-      if(state.invalidBasis.has(t.id)&&st===0 || state.invalidLinks.has(t.id)&&st===1)el.classList.add('needs-review');
+      if(state.invalidBasis.has(t.id)&&st===1 || state.invalidLinks.has(t.id)&&st===0)el.classList.add('needs-review');
       if(st===2 && state.showThreads)el.classList.add('is-anchor');
       if(st===2 && state.showThreads && state.activeAnchor===t.id)el.classList.add('anchor-active');
       if(lmark && linksMap.has(t.id))el.title=linksMap.get(t.id).type;
@@ -223,28 +223,19 @@
     }
     const mapping=partColors();
     const drawn=(mode==='demo'||state.basesApproved||state.revealed)?lessons[lessonIndex].parts.filter(p=>mapping[p.id]):[];
-    $('legend').innerHTML=drawn.map(p=>`<span class="legend-chip" style="--chip:${colors[mapping[p.id]].tone}">${html(p.title)}</span>`).join('') || '<span class="answer-note">'+(st===1?'Обведи союзы в цветах соответствующих основ.':'Выбери маркер и подчеркни грамматические основы.')+'</span>';
+    $('legend').innerHTML=drawn.map(p=>`<span class="legend-chip" style="--chip:${colors[mapping[p.id]].tone}">${html(p.title)}</span>`).join('') || '<span class="answer-note">'+(st===0?'Выдели подчинительные союзы и союзные слова.':'Выдели основы в цветах соответствующих союзов.')+'</span>';
   }
   function onWordClick(id) {
     const st=currentStep();
     if(mode==='demo'){
-      if(st===0 && basisMap.has(id)){state.demoBasis.add(id);renderSentence();}
-      else if(st===1 && linksMap.has(id)){state.demoLinks.add(id);renderSentence();}
+      if(st===0 && linksMap.has(id)){state.demoLinks.add(id);renderSentence();}
+      else if(st===1 && basisMap.has(id)){state.demoBasis.add(id);renderSentence();}
       else if(st===2 && state.showThreads){state.activeAnchor=id;renderSentence();setFeedback('Теперь нажми на узелок нужного придаточного.');}
       return;
     }
     if(st===0){
-      if(state.basesApproved)return;
       if(!state.activeColor){setFeedback('Сначала выбери цвет маркера.','error');return;}
-      if(!state.activeRole){setFeedback('Выбери инструмент: «Подлежащее —» или «Сказуемое ═».','error');return;}
-      const m=state.basisMarks.get(id);
-      if(m && m.role===state.activeRole && m.color===state.activeColor) state.basisMarks.delete(id);
-      else state.basisMarks.set(id,{role:state.activeRole,color:state.activeColor});
-      state.invalidBasis.delete(id);renderSentence();
-    } else if(st===1){
-      if(!state.activeColor){setFeedback('Сначала выбери цвет придаточной части.','error');return;}
-      // Составные союзы выделяем целиком. Предлог при союзном слове факультативен:
-      // клик на «в» даёт «в который», клик на «который» — только «который».
+      // Составные союзы отмечаются целиком, предлог при союзном слове — по выбору.
       const group=phraseGroups.get(id) || [id];
       const optional=group.length===2 && optionalPreps.has(group[0]);
       const desired=optional && id!==group[0]?[id]:group;
@@ -253,6 +244,14 @@
       group.forEach(i=>{state.linkMarks.delete(i);state.invalidLinks.delete(i);});
       if(!alreadyMarked) desired.forEach(i=>state.linkMarks.set(i,{color:state.activeColor}));
       renderSentence();
+    } else if(st===1){
+      if(state.basesApproved)return;
+      if(!state.activeColor){setFeedback('Сначала выбери цвет маркера.','error');return;}
+      if(!state.activeRole){setFeedback('Выбери инструмент: «Подлежащее» или «Сказуемое».','error');return;}
+      const m=state.basisMarks.get(id);
+      if(m && m.role===state.activeRole && m.color===state.activeColor) state.basisMarks.delete(id);
+      else state.basisMarks.set(id,{role:state.activeRole,color:state.activeColor});
+      state.invalidBasis.delete(id);renderSentence();
     } else if(st===2){
       state.activeAnchor=id;renderSentence();setFeedback('Выбрано опорное слово: «'+tokens[id].value+'». Нажми на узелок придаточной части.');
     }
@@ -373,15 +372,14 @@
   function renderAnswerArea() {
     const el=$('answer-area'),st=currentStep();
     if(mode==='demo') {
-      el.innerHTML='<div class="answer-note">Режим объяснения: последовательно открывай основы, овальчики и готовые связи.</div>';
+      el.innerHTML='<div class="answer-note">Режим объяснения: сначала союзы, затем основы, затем связи и схемы.</div>';
       return;
     }
     if(st===2){
       const opts=['parallel','sequential','homogeneous'];
       const count=lessons[lessonIndex].parts.length-1;
-      el.innerHTML=`<div class="choice-section"><div class="answer-title">Подбери схему к предложению</div><div class="scheme-choices">${opts.map((shape,i)=>`<button class="scheme-choice ${state.selectedScheme===shape?'selected':''}" data-shape="${shape}" type="button" aria-pressed="${state.selectedScheme===shape}"><span class="scheme-choice-number">Схема ${['А','Б','В'][i]}</span>${schemeSvg(shape,count)}</button>`).join('')}</div></div>
-        <div class="choice-section kind-section"><div class="answer-title">Сделай вывод: какой это вид подчинения?</div><div class="answer-options">${Object.entries(names).map(([v,label])=>`<button class="type-btn ${state.selectedType===v?'selected':''}" data-type="${v}" type="button" aria-pressed="${state.selectedType===v}">${label}</button>`).join('')}</div></div>
-        <button id="toggle-threads" class="threads-toggle" type="button" aria-expanded="${state.showThreads}">${state.showThreads?'Скрыть ниточки':'Распутать ниточки (по желанию)'} ${state.showThreads?'↑':'↓'}</button>`;
+      el.innerHTML=`<div class="choice-section"><button id="toggle-threads" class="threads-toggle" type="button" aria-expanded="${state.showThreads}">${state.showThreads?'Скрыть ниточки':'Распутать ниточки и задать вопросы (по желанию)'} ${state.showThreads?'↑':'↓'}</button><div class="answer-note">Схему и ниточки можно использовать одновременно.</div></div><div class="choice-section"><div class="answer-title">Подбери схему к предложению</div><div class="scheme-choices">${opts.map((shape,i)=>`<button class="scheme-choice ${state.selectedScheme===shape?'selected':''}" data-shape="${shape}" type="button" aria-pressed="${state.selectedScheme===shape}"><span class="scheme-choice-number">Схема ${['А','Б','В'][i]}</span>${schemeSvg(shape,count)}</button>`).join('')}</div></div>
+        <div class="choice-section kind-section"><div class="answer-title">Сделай вывод: какой это вид подчинения?</div><div class="answer-options">${Object.entries(names).map(([v,label])=>`<button class="type-btn ${state.selectedType===v?'selected':''}" data-type="${v}" type="button" aria-pressed="${state.selectedType===v}">${label}</button>`).join('')}</div></div>`;
       el.querySelectorAll('[data-shape]').forEach(btn=>btn.addEventListener('click',()=>{state.selectedScheme=btn.dataset.shape;renderAnswerArea();}));
       el.querySelectorAll('[data-type]').forEach(btn=>btn.addEventListener('click',()=>{state.selectedType=btn.dataset.type;renderAnswerArea();}));
       $('toggle-threads').addEventListener('click',()=>{
@@ -391,9 +389,9 @@
     } else if(st===3){
       el.innerHTML='<div class="answer-title">'+(state.revealed?'Разбор преподавателя':'Задание выполнено')+'</div><div class="answer-note">Можно перейти к следующему предложению или разобрать это ещё раз.</div>';
     } else {
-      const message=st===0?'Пока только подчёркиваем основы. Проверки ещё нет.': 'Теперь только обводим подчинительные союзы и союзные слова. Проверка основ и союзов будет общей.';
-      el.innerHTML=`<div class="answer-note">${message}</div>${st===1?'<button id="back-to-bases-bottom" type="button" class="small-action">← Исправить основы, сохранив овальчики</button>':''}<button id="reveal-answer" type="button" class="small-action">Показать решение</button>`;
-      if(st===1)$('back-to-bases-bottom').addEventListener('click',backToBases);
+      const message=st===0?'Сначала выдели подчинительные союзы и союзные слова.': 'Затем выдели грамматические основы в тех же цветах. Проверка будет общей.';
+      el.innerHTML=`<div class="answer-note">${message}</div>${st===1?'<button id="back-to-conjunctions-bottom" type="button" class="small-action">← Исправить союзы, сохранив основы</button>':''}<button id="reveal-answer" type="button" class="small-action">Показать решение</button>`;
+      if(st===1)$('back-to-conjunctions-bottom').addEventListener('click',backToConjunctions);
       $('reveal-answer').addEventListener('click',()=>{
         if(confirm('Показать готовый разбор? Самостоятельное выполнение не будет засчитано.')){
           state.revealed=true;state.step=3;state.activeAnchor=null;
@@ -412,10 +410,10 @@
       $('clear-step').textContent='Разобрать заново';
       $('check-button').textContent='Следующее предложение →';
     } else if(state.step===0){
-      $('clear-step').textContent='Очистить основы';
-      $('check-button').textContent='Выдели подчинительные союзы →';
+      $('clear-step').textContent='Очистить союзы';
+      $('check-button').textContent='Выдели грамматические основы →';
     } else if(state.step===1){
-      $('clear-step').textContent='Очистить овальчики';
+      $('clear-step').textContent='Очистить основы';
       $('check-button').textContent='Проверить выделение ✓';
     } else {
       $('clear-step').textContent='Изменить ответ';
@@ -471,9 +469,8 @@
     const st=state.step;
     if(st===3){gotoRelative(1);return;}
     if(st===0){
-      // ПЕРВЫЙ ШАГ НЕ ПРОВЕРЯЕМ: ученик сначала отмечает все основы,
-      // потом — все союзы, и только затем проверяет оба выделения.
-      goToConjunctions();return;
+      // Сначала отмечаются союзы, затем основы; проверяем оба выделения вместе.
+      goToBases();return;
     }
     if(st===1){
       const basesOK=checkBases();
@@ -482,7 +479,7 @@
       const linksMessage=feedback.text;
       if(basesOK && linksOK){
         state.step=2;state.basesApproved=true;state.invalidBasis.clear();state.invalidLinks.clear();
-        feedback={text:'Отлично! Выделение верно. Ниже выбери схему и вид подчинения — экран прокрутится к ним автоматически.',type:'success'};
+        feedback={text:'Верно! Теперь выбери схему и вид подчинения. Ниточки доступны одновременно со схемами.',type:'success'};
       }else{
         feedback={text:[!basesOK?basesMessage:'',!linksOK?linksMessage:''].filter(Boolean).join(' '),type:'error'};
       }
@@ -507,7 +504,7 @@
   function nextDemo() {
     if(state.demoStage>=3){state=makeState();setFeedback('Показ начат заново.');render();return;}
     state.demoStage++;state.activeAnchor=null;
-    feedback={text:['','Основы выделены.','Средства связи обведены.','Показаны ниточки и правильный разбор.'][state.demoStage],type:'success'};
+    feedback={text:['','Союзы и союзные слова выделены.','Грамматические основы выделены.','Показаны ниточки и правильный разбор.'][state.demoStage],type:'success'};
     render();
   }
   function clearStep() {
@@ -517,8 +514,8 @@
       feedback={text:'Возврат к предыдущему шагу.',type:''};render();return;
     }
     if(state.step===3){state=makeState();feedback={text:'Разбор начат заново.',type:''};render();return;}
-    if(state.step===0){state.basisMarks.clear();state.invalidBasis.clear();state.basesApproved=false;}
-    if(state.step===1){state.linkMarks.clear();state.invalidLinks.clear();}
+    if(state.step===0){state.linkMarks.clear();state.invalidLinks.clear();}
+    if(state.step===1){state.basisMarks.clear();state.invalidBasis.clear();state.basesApproved=false;}
     if(state.step===2){state.edges={};state.activeAnchor=null;state.wrongEdges.clear();state.selectedScheme=null;state.selectedType=null;state.showThreads=false;}
     
     feedback={text:'Выделения текущего шага очищены.',type:''};render();
@@ -590,6 +587,15 @@
   if(typeof ResizeObserver!=='undefined'){new ResizeObserver(()=>scheduleThreads()).observe($('work-area'));}
   // Diagnostics for content review and browser smoke tests. Read-only.
   window.NITI_DIAGNOSTICS={getLesson:()=>lessons[lessonIndex],getFilter:()=>activeFilter,getOrder:()=>[...lessonOrder],getState:()=>({...state}),tokens:()=>tokens.map(t=>({id:t.id,value:t.value})),getKeys:()=>({bases:[...basisMap.entries()],links:[...linksMap.entries()],edges:[...edgeMap.entries()],optionalPreps:[...optionalPreps]})};
+  // Текст правил обновляем программно: для публикации достаточно заменить app.js.
+  // В существующем index.html прежде был указан старый порядок шагов.
+  const rulesList=$('rules-dialog')?.querySelector('ol');
+  if(rulesList) rulesList.innerHTML=[
+    '<li><strong>Союзы.</strong> Выдели подчинительные союзы и союзные слова разными цветами.</li>',
+    '<li><strong>Основы.</strong> Выдели грамматические основы. Для каждой придаточной части используй цвет её союза или союзного слова.</li>',
+    '<li><strong>Схема.</strong> Выбери подходящую схему и определи вид подчинения. При желании распутай ниточки и задай вопросы.</li>',
+    '<li><strong>Тренировка.</strong> Выбери вид подчинения или «Всё вперемешку».</li>'
+  ].join('');
   buildOrder(true);
   setLesson(lessonOrder[0]);
 })();
