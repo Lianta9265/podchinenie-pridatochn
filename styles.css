@@ -153,3 +153,20 @@
 .oge-review li{margin:16px 0}.oge-review p{margin:8px 0}
 .exam-answer{margin-top:12px;font-size:15px;line-height:1.5}
 .lesson-num{width:auto;min-width:28px;flex-basis:auto;padding:0 4px}
+
+/* Additional structures retain the existing scheme cells, colors and typography. */
+.mixed-scheme{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:12px;align-items:start;width:100%}
+.mixed-branch{display:flex;flex-direction:column;align-items:stretch;gap:8px;min-width:0}
+.mixed-coordination{text-align:center;align-self:start;color:#654477;padding-top:16px;font-weight:700;max-width:110px}
+.mixed-coordination small{font-size:13px;font-weight:400}
+.scheme-visual:has(.mixed-scheme){grid-template-columns:minmax(0,1fr);justify-content:stretch}
+.scheme-choices-mixed{grid-template-columns:repeat(2,minmax(0,1fr))}
+.scheme-visual.horizontal .mixed-scheme{grid-template-columns:minmax(0,1fr)}
+.scheme-visual.horizontal .mixed-branch{display:grid;grid-template-columns:minmax(0,1fr) 120px minmax(0,1fr);align-items:center}
+.scheme-visual.horizontal .mixed-branch .scheme-arrow{font-size:0}
+.scheme-visual.horizontal .mixed-branch .scheme-arrow::before{content:'→';font-size:21px}
+.scheme-visual.horizontal .mixed-branch .scheme-caption{display:block}
+.teacher-note{margin-top:14px;padding:12px 14px;border-left:4px solid #b18acb;background:#f7f0fc;border-radius:10px;line-height:1.55;font-size:15px}
+.teacher-note p{margin:8px 0 0}
+@media(max-width:600px){.mixed-scheme{grid-template-columns:minmax(0,1fr)}.mixed-coordination{max-width:none;padding:6px 0}.mixed-branch{width:100%}}
+@media(max-width:600px){.scheme-visual.horizontal .mixed-branch{grid-template-columns:minmax(0,1fr)}.scheme-visual.horizontal .mixed-branch .scheme-arrow::before{content:'↓'}}

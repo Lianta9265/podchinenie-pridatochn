@@ -55,6 +55,35 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
         this.click('[data-role="'+(base.role==='s'?'s':'p')+'"]');
         this.click('#sentence [data-id="'+id+'"]');
       }
+      if(l.id==='oge28854'){
+        const ids=['немало','примеров'].map(w=>d.tokens().find(t=>t.value===w).id);
+        const word=id=>'#sentence [data-id="'+id+'"]';
+        this.click('[data-color="'+mapping.m+'"]');this.click('[data-role="s"]');
+        // The previous one-word predicate must fail; both words are subjects.
+        ids.forEach(id=>this.click(word(id)));this.click('[data-role="p"]');this.click(word(ids[0]));this.click('#check-marking-top');
+        this.assert(d.getState().step===1&&!document.querySelector('.clause-highlight'),'Old erroneous predicate rejected');
+        this.click(word(ids[0]));this.click('[data-role="s"]');ids.forEach(id=>this.click(word(id)));
+        this.click(word(ids[1]));this.click('#check-marking-top');this.assert(d.getState().step===1,'Both subject words required');this.click(word(ids[1]));
+        this.click('[data-color="a"]');this.click(word(ids[1]));this.click('#check-marking-top');this.assert(d.getState().step===1,'Subject words must share one color');
+        this.click('[data-color="'+mapping.m+'"]');this.click(word(ids[1]));
+      }
+      if(l.id==='oge38519'){
+        const id=d.tokens().find(t=>t.value==='нет').id;
+        this.assert(!keys.bases.some(([baseId])=>baseId===id),'No invented key for ellipsis');
+        this.assert(document.getElementById('instruction').textContent.includes('преподавателем'),'Ellipsis guidance');
+        this.click('[data-color="'+mapping.a+'"]');this.click('[data-role="p"]');this.click('#sentence [data-id="'+id+'"]');
+        this.assert(!d.getState().basisMarks.has(id),'Elliptic element is explained, not marked as predicate');
+        const linkId=keys.links.find(([,link])=>link.part==='a')[0];
+        this.click('#back-to-conjunctions');this.click('[data-color="'+mapping.m+'"]');this.click('#sentence [data-id="'+linkId+'"]');this.click('#go-to-bases');this.click('#check-marking-top');
+        this.assert(d.getState().step===1&&!document.querySelector('.clause-highlight'),'Elliptic clause requires a distinct chosen color');
+        this.click('#back-to-conjunctions');this.click('[data-color="'+mapping.a+'"]');this.click('#sentence [data-id="'+linkId+'"]');this.click('#go-to-bases');
+      }
+      if(l.id==='oge28539'){
+        const id=d.tokens().find(t=>t.value==='однако').id;
+        this.click('#back-to-conjunctions');this.click('[data-color="'+mapping.c+'"]');this.click('#sentence [data-id="'+id+'"]');this.click('#go-to-bases');this.click('#check-marking-top');
+        this.assert(d.getState().step===1,'Coordinating conjunction not accepted as subordinate');
+        this.click('#back-to-conjunctions');this.click('[data-color="'+mapping.c+'"]');this.click('#sentence [data-id="'+id+'"]');this.click('#go-to-bases');
+      }
       if(fault){
         const [id,key]=fault==='role'?keys.bases[0]:keys.links.find(([id])=>!keys.optionalPreps.includes(id));
         const correct=mapping[key.partId||key.part];
@@ -72,6 +101,9 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
       }
       this.click('#check-marking-top');
       this.assert(d.getState().step===2,l.id+' marking rejected: '+document.getElementById('feedback').textContent);
+      this.assert(!l.source||!document.body.innerText.includes(l.source.claim),'Exam assertion not shown before answer');
+      this.assert(document.querySelectorAll('[data-shape]').length===(l.kind==='mixed'?4:3),'Choice count');
+      this.assert(Boolean(document.querySelector('[data-type="mixed"]'))===(l.kind==='mixed'),'Old choices unchanged');
       this.assert(document.getElementById('sentence').textContent===l.text,'Sentence unchanged '+l.id);
       const owners=new Map(keys.tokenParts);
       for(const el of document.querySelectorAll('#sentence [data-id]')){
@@ -83,6 +115,17 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
         this.assert(fill.startsWith('rgba(')&&alpha>=0.18&&alpha<=0.24, 'Translucent pastel: '+fill);
       }
       return {id:l.id,kind:l.kind};
+    },
+    connect(){
+      const keys=NITI_DIAGNOSTICS.getKeys();this.click('#toggle-threads');
+      for(const [part,e] of keys.edges){this.click('#sentence [data-id="'+e.anchor+'"]');this.click('#thread-board [data-part="'+part+'"]');}
+      this.assert(document.querySelectorAll('.clause-card').length===keys.edges.length,'Only subordinate cards on thread board');
+      for(const [part,e] of keys.edges){
+        this.assert(NITI_DIAGNOSTICS.getState().edges[part]===e.anchor,'Correct anchor for '+part);
+        const q=document.querySelector('#thread-board [data-part="'+part+'"] .thread-question');
+        this.assert(q?.textContent===e.question,'Correct question for '+part);
+        this.assert(parseFloat(getComputedStyle(q).fontSize)>=17,'Large question');
+      }
     },
     finish(kind){this.click('[data-shape="'+kind+'"]');this.click('[data-type="'+kind+'"]');this.click('#check-button');this.assert(NITI_DIAGNOSTICS.getState().step===3,'Finished exercise');}
   }; true`);
@@ -104,11 +147,39 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     const count=await evaluate(`qa.filter('${kind}');qa.assert(NITI_DIAGNOSTICS.getOrder().every(i=>window.DEFAULT_LESSONS[i]?.kind==='${kind}'),'Original filter isolation');NITI_DIAGNOSTICS.getOrder().length;`);
     assert(count>0);
   }
-  await evaluate(`qa.filter('oge');qa.assert(NITI_DIAGNOSTICS.getOrder().length===5,'Five OGE cards');qa.assert(!document.getElementById('oge-review').hidden,'Teacher review visible');qa.assert(document.querySelectorAll('#oge-review-list li').length===5,'Five deferred items');true`);
+  await evaluate(`qa.filter('oge');qa.assert(NITI_DIAGNOSTICS.getOrder().length===10,'Ten OGE cards');qa.assert(document.querySelectorAll('.lesson-item').length===10,'All ten listed');qa.assert(!document.getElementById('oge-review'),'No excluded list');true`);
   await evaluate(`const orders=new Set();for(let i=0;i<5;i++){qa.click('#reshuffle');orders.add(NITI_DIAGNOSTICS.getOrder().join(','));}qa.assert(orders.size>1,'OGE order is shuffled');true`);
   const ogeIds=await evaluate(`window.OGE_LESSONS.map(l=>l.id)`);
-  for(const id of ogeIds){const r=await evaluate(`qa.select('${id}');qa.mark();`);await evaluate(`qa.finish('${r.kind}');true`);}
-  console.log('PASS: 5 OGE exercises, source links, separate filters and deferred teacher list.');
+  for(const id of ogeIds){
+    const r=await evaluate(`qa.select('${id}');qa.mark();`);
+    await evaluate(`qa.connect();true`);await sleep(40);
+    await evaluate(`qa.assert(document.querySelectorAll('.thread-path').length===NITI_DIAGNOSTICS.getKeys().edges.length,'All threads drawn');true`);
+    if(id==='oge28539')await evaluate(`qa.click('[data-shape="parallel"]');qa.click('[data-type="parallel"]');qa.click('#check-button');qa.assert(NITI_DIAGNOSTICS.getState().step===2,'Artificial parallel type rejected');true`);
+    await evaluate(`qa.finish('${r.kind}');true`);
+    if(id==='oge28854')await evaluate(`qa.assert([...document.querySelectorAll('#sentence .role-s')].filter(el=>['немало','примеров'].includes(el.textContent)).length===2,'Two single underlines');true`);
+    if(id==='oge28539'){
+      await evaluate(`qa.assert(document.querySelectorAll('.mixed-branch').length===2,'Two real main branches');qa.assert(document.querySelector('.mixed-coordination').textContent.includes('однако'),'Coordination retained');qa.click('[data-layout="horizontal"]');qa.assert(document.querySelectorAll('.mixed-branch').length===2,'Horizontal solution preserves roots');true`);
+      await evaluate(`document.getElementById('solution').scrollIntoView({behavior:'instant'});true`);
+      fs.writeFileSync(path.join(out,'desktop-oge28539-solution.png'),Buffer.from((await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+    }
+    if(id==='oge38519')await evaluate(`qa.assert(document.querySelector('.teacher-note').textContent.includes('эллипсис'),'Teacher ellipsis explanation');qa.assert(NITI_DIAGNOSTICS.getLesson().text.startsWith('Если нет, то'),'Original ellipse unchanged');true`);
+    if(['oge28720','oge38422','oge38609','oge28539'].includes(id))await evaluate(`qa.assert(document.querySelector('.exam-answer').textContent.includes('— неверно'),'False original assertion explained only after answer');true`);
+  }
+  await evaluate(`qa.assert(document.getElementById('progress').textContent==='10/10','Ten of ten progress');qa.click('#repeat-errors');qa.assert(document.querySelectorAll('.lesson-item').length===3,'OGE error review');qa.click('#repeat-errors');true`);
+  // Both modes work on every exam card, including the separate main root and ellipsis.
+  for(const id of ogeIds){
+    await evaluate(`qa.select('${id}');qa.click('#mode-demo');qa.click('#check-button');qa.click('#check-button');qa.click('#check-button');qa.assert(document.querySelector('.clause-highlight'),'Demo highlights for ${id}');qa.assert(document.querySelectorAll('.clause-card').length===NITI_DIAGNOSTICS.getKeys().edges.length,'Demo board for ${id}');qa.click('#mode-play');true`);
+  }
+  console.log('PASS: all 10 OGE exercises, real dependency threads, corrected quantity subject, mixed structure, ellipsis and both modes.');
+  for(const id of ['oge28539','oge38519']){
+    await evaluate(`qa.select('${id}');qa.mark();qa.connect();true`);await sleep(650);
+    await evaluate(`document.querySelector('.drag-handle').scrollIntoView({behavior:'instant',block:'center'});true`);await sleep(80);
+    const p=await evaluate(`(()=>{const r=document.querySelector('.drag-handle').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+    await cdp('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...p});
+    await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,x:p.x+30,y:p.y+25});
+    await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:p.x+30,y:p.y+25});await sleep(60);
+    await evaluate(`qa.assert(Object.keys(NITI_DIAGNOSTICS.getState().positions).length,'Special card drag: ${id}');qa.assert(document.querySelectorAll('.thread-path').length===2,'Threads follow drag: ${id}');true`);
+  }
   // Include each optional preposition as well as accepting the relative word alone.
   for(const id of ['n01','n12','n28','n33','oge43368']){
     await evaluate(`qa.filter('${id.startsWith('oge')?'oge':'all'}');qa.select('${id}');qa.mark(true);true`);
@@ -133,11 +204,19 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   // Narrow screens: long clauses wrap naturally, without expanding the document.
   for(const width of [390,320]){
     await cdp('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:true});
-    for(const id of ['n01','n02','oge38464','oge38560','oge43368']){
+    for(const id of ['n01','n02',...ogeIds]){
       const dimensions=await evaluate(`qa.filter('${id.startsWith('oge')?'oge':'all'}');qa.select('${id}');qa.mark();({width:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth})`);
       assert(dimensions.scroll<=dimensions.width+1,`${id} horizontal overflow at ${width}: ${JSON.stringify(dimensions)}`);
       await evaluate(`document.getElementById('work-area').scrollIntoView();true`);await sleep(50);
-      if(width===390&&['n01','n02','oge43368'].includes(id))fs.writeFileSync(path.join(out,'mobile-'+id+'.png'),Buffer.from((await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+      if(width===390&&['n01','n02','oge28854','oge28539','oge38519'].includes(id))fs.writeFileSync(path.join(out,'mobile-'+id+'.png'),Buffer.from((await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+      if(['oge28539','oge38519'].includes(id)){
+        await evaluate(`document.getElementById('answer-area').scrollIntoView({behavior:'instant'});true`);await sleep(60);
+        if(width===390)fs.writeFileSync(path.join(out,'mobile-'+id+'-choices.png'),Buffer.from((await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+        await evaluate(`qa.finish('${id==='oge28539'?'mixed':'parallel'}');qa.click('[data-layout="horizontal"]');document.getElementById('solution').scrollIntoView({behavior:'instant'});true`);await sleep(60);
+        const size=await evaluate(`({width:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth})`);
+        assert(size.scroll<=size.width+1,'Special solution overflow: '+id+' at '+width);
+        if(width===390)fs.writeFileSync(path.join(out,'mobile-'+id+'-solution.png'),Buffer.from((await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+      }
     }
   }
   console.log('PASS: optional prepositions, failed checks, both modes, draggable threads, 390px and 320px layouts.');

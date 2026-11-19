@@ -8,7 +8,10 @@
     c: {tone:'#E75F61',pale:'#FFE3DC',dark:'#A4333D',name:'Коралловый'},
     d: {tone:'#377DD8',pale:'#DCEBFF',dark:'#19539B',name:'Синий'}
   };
-  const names = {sequential:'Последовательное', parallel:'Параллельное', homogeneous:'Однородное'};
+  const names = {sequential:'Последовательное', parallel:'Параллельное', homogeneous:'Однородное', mixed:'Смешанная связь'};
+  const isMain = p => p.id==='m' || p.main===true;
+  const subordinateParts = lesson => lesson.parts.filter(p=>!isMain(p));
+  const basisReviewFor = id => lessons[lessonIndex].parts.find(p=>p.id===tokenParts.get(id))?.basisReview;
   const stepTitles = ['Выдели союзы','Выдели основы','Схема и ниточки'];
   const $ = id => document.getElementById(id);
   const html = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -91,6 +94,11 @@
       const mark=state.basisMarks.get(idx);
       if(mark && !mapping[base.partId])mapping[base.partId]=mark.color;
     }
+    for(const p of lessons[lessonIndex].parts.filter(p=>p.basisReview)){
+      const link=lessons[lessonIndex].links.find(l=>l.part===p.id);
+      const mark=link && state.linkMarks.get(lookup(link));
+      if(mark)mapping[p.id]=mark.color;
+    }
     return mapping;
   }
   function basisMark(id) {
@@ -140,9 +148,7 @@
     const source=lessons[lessonIndex].source;
     const el=$('lesson-source');el.hidden=!source;
     el.innerHTML=source?`ОГЭ · задание 3 · <a href="${html(source.url)}" target="_blank" rel="noopener noreferrer">№ ${source.problemId}</a> · предложение ${source.sentence}`:'';
-    const review=$('oge-review');review.hidden=activeFilter!=='oge';
-    const pending=window.OGE_REVIEW || [];
-    $('oge-review-list').innerHTML=pending.map(item=>`<li><a href="${html(item.url)}" target="_blank" rel="noopener noreferrer">№ ${item.problemId}</a> · предложение ${item.sentence}<p>${html(item.text)}</p><p>${html(item.reason)} Ответ исходного задания: <strong>${html(item.answer)}</strong>.</p></li>`).join('');
+
   }
   function renderSteps() {
     const s=currentStep();
@@ -162,17 +168,23 @@
       state.revealed?'Открыт разбор преподавателя.':'Готово! Проверь схему и объяснение.'
     ];
     $('instruction').textContent=lessons[lessonIndex].teacherReview?'Особый пример для разбора с учителем. Автоматическая проверка основ в нём отключена.':messages[Math.min(st,messages.length-1)];
+    if(st===1){
+      const review=lessons[lessonIndex].parts.find(p=>p.basisReview)?.basisReview;
+      if(review)$('instruction').textContent+=' '+review.instruction;
+    }
+    if(lessons[lessonIndex].kind==='mixed')$('instruction').textContent=$('instruction').textContent.replaceAll('вид подчинения','вид связи');
   }
   function renderNextPrompt() {
     const btn=$('scheme-jump');
     const ready=mode==='play' && state.step===2 && !state.revealed;
     btn.hidden=!ready;
-    if(ready)btn.textContent='✓ Выделение верное — перейти к схемам и виду подчинения ↓';
+    if(ready)btn.textContent=lessons[lessonIndex].kind==='mixed'?'✓ Выделение верное — перейти к схемам и виду связи ↓':'✓ Выделение верное — перейти к схемам и виду подчинения ↓';
   }
   function goToBases() {
     if(mode!=='play' || state.step!==0 || state.revealed)return;
     state.step=1;state.activeColor=null;
     feedback={text:'Теперь выдели основы. Используй для каждого придаточного цвет его союза или союзного слова. Главной части выбери отдельный цвет.',type:''};
+    if(lessons[lessonIndex].kind==='mixed')feedback.text=feedback.text.replace('Главной части выбери','Каждой главной части выбери');
     render();
   }
   function backToConjunctions() {
@@ -279,6 +291,8 @@
       renderSentence();
     } else if(st===1){
       if(state.basesApproved)return;
+      const review=basisReviewFor(id);
+      if(review){setFeedback(review.instruction);return;}
       if(!state.activeColor){setFeedback('Сначала выбери цвет маркера.','error');return;}
       if(!state.activeRole){setFeedback('Выбери инструмент: «Подлежащее» или «Сказуемое».','error');return;}
       const m=state.basisMarks.get(id);
@@ -294,7 +308,7 @@
     const board=$('thread-board');
     if(!showBoard()){board.innerHTML='';return;}
     board.innerHTML='';
-    const parts=lessons[lessonIndex].parts.filter(p=>p.id!=='m');
+    const parts=subordinateParts(lessons[lessonIndex]);
     parts.forEach((p,i)=>{
       const col=colors[partColors()[p.id]||p.id]||colors.c;
       const card=document.createElement('button');card.type='button';card.className='clause-card';card.dataset.part=p.id;
@@ -359,7 +373,7 @@
     const area=$('work-area').getBoundingClientRect();
     svg.setAttribute('viewBox',`0 0 ${area.width} ${area.height}`);
     const shown=shownEdges();
-    for(const p of lessons[lessonIndex].parts.filter(p=>p.id!=='m')){
+    for(const p of subordinateParts(lessons[lessonIndex])){
       const tId=shown[p.id];if(tId===undefined||tId===null)continue;
       const from=$('sentence').querySelector(`[data-id="${tId}"]`), to=$('thread-board').querySelector(`[data-part="${p.id}"]`);
       if(!from||!to)continue;
@@ -377,6 +391,14 @@
     }
   }
   function schemeSvg(shape,count) {
+    if(shape==='mixed')return `<svg class="schema-mini" viewBox="0 0 320 203" role="img" aria-label="Две главные части соединены сочинением; у каждой своё придаточное">
+      <defs><marker id="arr-mixed" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5 Z" fill="#18A79D"/></marker></defs>
+      <rect x="8" y="14" width="115" height="38" rx="12" fill="#654477"/><rect x="197" y="14" width="115" height="38" rx="12" fill="#654477"/>
+      <text x="65" y="38" font-size="14" font-weight="bold" fill="white" text-anchor="middle">Главная 1</text><text x="255" y="38" font-size="14" font-weight="bold" fill="white" text-anchor="middle">Главная 2</text>
+      <path d="M123 42 H197" stroke="#6C4C80" stroke-width="2.5"/><text x="160" y="30" text-anchor="middle" font-size="12" fill="#382A45">однако</text>
+      <path d="M65 52 V125 M255 52 V125" stroke="#18A79D" stroke-width="3" fill="none" marker-end="url(#arr-mixed)"/>
+      <circle cx="65" cy="151" r="23" fill="#FFF9F2" stroke="#6C4C80" stroke-width="2.5"/><circle cx="255" cy="151" r="23" fill="#FFF9F2" stroke="#6C4C80" stroke-width="2.5"/>
+      <text x="65" y="156" text-anchor="middle" font-size="14" fill="#382A45">1</text><text x="255" y="156" text-anchor="middle" font-size="14" fill="#382A45">2</text></svg>`;
     const W=320,H=203;
     let strokes='';
     let circles='';
@@ -409,10 +431,12 @@
       return;
     }
     if(st===2){
-      const opts=['parallel','sequential','homogeneous'];
-      const count=lessons[lessonIndex].parts.length-1;
-      el.innerHTML=`<div class="choice-section"><button id="toggle-threads" class="threads-toggle" type="button" aria-expanded="${state.showThreads}">${state.showThreads?'Скрыть ниточки':'Распутать ниточки и задать вопросы (по желанию)'} ${state.showThreads?'↑':'↓'}</button><div class="answer-note">Схему и ниточки можно использовать одновременно.</div></div><div class="choice-section"><div class="answer-title">Подбери схему к предложению</div><div class="scheme-choices">${opts.map((shape,i)=>`<button class="scheme-choice ${state.selectedScheme===shape?'selected':''}" data-shape="${shape}" type="button" aria-pressed="${state.selectedScheme===shape}"><span class="scheme-choice-number">Схема ${['А','Б','В'][i]}</span>${schemeSvg(shape,count)}</button>`).join('')}</div></div>
-        <div class="choice-section kind-section"><div class="answer-title">Сделай вывод: какой это вид подчинения?</div><div class="answer-options">${Object.entries(names).map(([v,label])=>`<button class="type-btn ${state.selectedType===v?'selected':''}" data-type="${v}" type="button" aria-pressed="${state.selectedType===v}">${label}</button>`).join('')}</div></div>`;
+      const mixed=lessons[lessonIndex].kind==='mixed';
+      const opts=['parallel','sequential','homogeneous',...(mixed?['mixed']:[])];
+      const typeOptions=Object.entries(names).filter(([v])=>mixed||v!=='mixed');
+      const count=subordinateParts(lessons[lessonIndex]).length;
+      el.innerHTML=`<div class="choice-section"><button id="toggle-threads" class="threads-toggle" type="button" aria-expanded="${state.showThreads}">${state.showThreads?'Скрыть ниточки':'Распутать ниточки и задать вопросы (по желанию)'} ${state.showThreads?'↑':'↓'}</button><div class="answer-note">Схему и ниточки можно использовать одновременно.</div></div><div class="choice-section"><div class="answer-title">Подбери схему к предложению</div><div class="scheme-choices${mixed?' scheme-choices-mixed':''}">${opts.map((shape,i)=>`<button class="scheme-choice ${state.selectedScheme===shape?'selected':''}" data-shape="${shape}" type="button" aria-pressed="${state.selectedScheme===shape}"><span class="scheme-choice-number">Схема ${['А','Б','В','Г'][i]}</span>${schemeSvg(shape,count)}</button>`).join('')}</div></div>
+        <div class="choice-section kind-section"><div class="answer-title">Сделай вывод: ${mixed?'какова связь между частями?':'какой это вид подчинения?'}</div><div class="answer-options">${typeOptions.map(([v,label])=>`<button class="type-btn ${state.selectedType===v?'selected':''}" data-type="${v}" type="button" aria-pressed="${state.selectedType===v}">${label}</button>`).join('')}</div></div>`;
       el.querySelectorAll('[data-shape]').forEach(btn=>btn.addEventListener('click',()=>{state.selectedScheme=btn.dataset.shape;renderAnswerArea();}));
       el.querySelectorAll('[data-type]').forEach(btn=>btn.addEventListener('click',()=>{state.selectedType=btn.dataset.type;renderAnswerArea();}));
       $('toggle-threads').addEventListener('click',()=>{
@@ -470,6 +494,7 @@
       if(owners[part] && owners[part]!==mark.color)incorrect.add(id);
       else owners[part]=mark.color;
     }
+    for(const p of lessons[lessonIndex].parts.filter(p=>p.basisReview))owners[p.id]=partColors()[p.id];
     let distinct=true;
     for(const p of lessons[lessonIndex].parts){
       if(!owners[p.id] || usedColors.has(owners[p.id]))distinct=false;
@@ -513,6 +538,7 @@
       if(basesOK && linksOK){
         state.step=2;state.basesApproved=true;state.invalidBasis.clear();state.invalidLinks.clear();
         feedback={text:'Верно! Теперь выбери схему и вид подчинения. Ниточки доступны одновременно со схемами.',type:'success'};
+        if(lessons[lessonIndex].kind==='mixed')feedback.text=feedback.text.replace('вид подчинения','вид связи');
       }else{
         feedback={text:[!basesOK?basesMessage:'',!linksOK?linksMessage:''].filter(Boolean).join(' '),type:'error'};
       }
@@ -526,11 +552,12 @@
       }
       const kind=lessons[lessonIndex].kind;
       if(state.selectedScheme!==kind || state.selectedType!==kind){
-        recordError();setFeedback('Есть ошибка в '+(state.selectedScheme!==kind && state.selectedType!==kind?'схеме и определении вида':state.selectedScheme!==kind?'схеме':'виде подчинения')+'. Сравни точки начала стрелок и смысловые вопросы.','error');return;
+        recordError();setFeedback('Есть ошибка в '+(state.selectedScheme!==kind && state.selectedType!==kind?'схеме и определении вида':state.selectedScheme!==kind?'схеме':kind==='mixed'?'виде связи':'виде подчинения')+'. Сравни точки начала стрелок и смысловые вопросы.','error');return;
       }
       state.step=3;progress[lessons[lessonIndex].id]={done:true,hadError:state.hadError};
       try{localStorage.setItem(storageKey,JSON.stringify(progress));}catch(_){}
       feedback={text:'Верно! Основы, союзы, схема и вид подчинения определены правильно.',type:'success'};
+      if(kind==='mixed')feedback.text=feedback.text.replace('вид подчинения','вид связи');
       render();return;
     }
   }
@@ -560,7 +587,13 @@
     const card=(id,text,cap)=>{const c=col[partColors()[id]||id]||col.c;return `<div class="scheme-cell" style="--tone:${c.tone};--tone-fade:${c.pale}">${text}${cap?`<div class="scheme-caption">${html(cap)}</div>`:''}</div>`;};
     const main=card('m','[ &nbsp;Главная&nbsp; ]','');
     let graphic='';
-    if(l.kind==='sequential') {
+    if(l.kind==='mixed') {
+      const branches=l.parts.filter(isMain).map(p=>{
+        const e=edgeStrings.find(e=>l.edges.find(edge=>edge.target===e.p.id)?.parent===p.id);
+        return `<div class="mixed-branch">${card(p.id,'[ '+html(p.title)+' ]','')}<div class="scheme-arrow">↓ <span class="scheme-caption">«${html(e.from)}» — ${html(e.question)}</span></div>${card(e.p.id,'( '+html(e.p.title)+' )','')}</div>`;
+      });
+      graphic=`<div class="mixed-scheme">${branches[0]}<div class="mixed-coordination">однако<br><small>сочинительная связь</small></div>${branches[1]}</div>`;
+    } else if(l.kind==='sequential') {
       if(schemeLayout==='vertical'){
         graphic=main+edgeStrings.map(e=>`<div class="scheme-arrow">↓ <span class="scheme-caption">«${html(e.from)}» — ${html(e.question)}</span></div>`+card(e.p.id,'( &nbsp;Придаточная '+(e.index+1)+'&nbsp; )','')).join('');
       } else {
@@ -585,7 +618,8 @@
         </div>
         <div class="nest-caption">Вложение частей не меняет направления зависимости: стрелка идёт от опорного слова в первом придаточном ко второму.</div>
       </div>` : '';
-    el.innerHTML=`<div class="solution-top"><h2>Схема: ${html(names[l.kind])} подчинение</h2><div class="scheme-switch"><button data-layout="vertical" type="button" class="${schemeLayout==='vertical'?'active':''}">Вертикальная</button><button data-layout="horizontal" type="button" class="${schemeLayout==='horizontal'?'active':''}">Горизонтальная</button></div></div><div class="scheme-visual ${schemeLayout}">${graphic}</div><p class="solution-note">${html(l.note)}</p>${l.source?`<details class="exam-answer"><summary>Ответ исходного задания ОГЭ № ${l.source.problemId}</summary><p>${html(l.source.claim)} — верно. Полный ответ задания 3: <strong>${html(l.source.answer)}</strong>.</p></details>`:''}${nested}`;
+    const teacherNotes=l.parts.filter(p=>p.basisReview).map(p=>`<div class="teacher-note"><strong>Разбор с преподавателем: ${html(p.short)}</strong><p>${html(p.basisReview.explanation)}</p></div>`).join('');
+    el.innerHTML=`<div class="solution-top"><h2>Схема: ${html(names[l.kind])}${l.kind==='mixed'?'':' подчинение'}</h2><div class="scheme-switch"><button data-layout="vertical" type="button" class="${schemeLayout==='vertical'?'active':''}">Вертикальная</button><button data-layout="horizontal" type="button" class="${schemeLayout==='horizontal'?'active':''}">Горизонтальная</button></div></div><div class="scheme-visual ${schemeLayout}">${graphic}</div><p class="solution-note">${html(l.note)}</p>${l.source?`<details class="exam-answer"><summary>Ответ исходного задания ОГЭ № ${l.source.problemId}</summary><p>${html(l.source.claim)} — ${l.source.claimCorrect===false?'неверно':'верно'}. Полный ответ задания 3: <strong>${html(l.source.answer)}</strong>.</p></details>`:''}${teacherNotes}${nested}`;
     el.querySelectorAll('[data-layout]').forEach(b=>b.addEventListener('click',()=>{schemeLayout=b.dataset.layout;renderSolution();}));
   }
   function showRules() { const d=$('rules-dialog');if(typeof d.showModal==='function')d.showModal();else d.setAttribute('open',''); }
