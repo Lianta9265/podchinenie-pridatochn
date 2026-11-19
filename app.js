@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const lessons = window.DEFAULT_LESSONS || [];
+  const lessons = [...(window.DEFAULT_LESSONS || []), ...(window.OGE_LESSONS || [])];
   const colors = {
     m: {tone:'#9850C5',pale:'#F2E0FB',dark:'#67338D',name:'Сливовый'},
     a: {tone:'#00AFA4',pale:'#C6F8F0',dark:'#006E6A',name:'Бирюзовый'},
@@ -20,20 +20,20 @@
   const isRegular = (l) => !l.teacherReview;
   const shuffled = arr => {const result=[...arr];for(let i=result.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[result[i],result[j]]=[result[j],result[i]];}return result;};
   function buildOrder(pinFirst=false){
-    const matches=lessons.map((l,i)=>({l,i})).filter(({l})=>isRegular(l)&&(activeFilter==='all'||l.kind===activeFilter)).map(x=>x.i);
-    lessonOrder=activeFilter==='all'?shuffled(matches):matches;
+    const matches=lessons.map((l,i)=>({l,i})).filter(({l})=>isRegular(l)&&(activeFilter==='oge' ? l.collection==='oge' : l.collection!=='oge'&&(activeFilter==='all'||l.kind===activeFilter))).map(x=>x.i);
+    lessonOrder=['all','oge'].includes(activeFilter)?shuffled(matches):matches;
     if(pinFirst && lessonOrder.includes(0)){lessonOrder=lessonOrder.filter(i=>i!==0);lessonOrder.unshift(0);}
   }
   function visibleOrder(){return lessonOrder.filter(i=>!reviewOnly||progress[lessons[i].id]?.hadError);}
   function gotoRelative(delta){const list=visibleOrder();if(!list.length)return;let at=list.indexOf(lessonIndex);setLesson(list[(at<0?(delta>0?0:list.length-1):at+delta+list.length)%list.length]);}
-  let state, tokens, lookup, basisMap, linksMap, edgeMap, phraseMap, phraseGroups, optionalPreps;
+  let state, tokens, lookup, basisMap, linksMap, edgeMap, phraseMap, phraseGroups, optionalPreps, tokenParts;
   const paletteKeys=['a','b','c','m','d'];
   let feedback = {text:'', type:''};
   let resizePending = false;
 
   function tokenise(s) {
-    const matches = s.match(/[А-Яа-яЁё]+(?:-[А-Яа-яЁё]+)*|[A-Za-z]+|\s+|[^\s]/gu) || [];
-    return matches.map((value,i) => ({id:i, value, isWord:/^[А-Яа-яЁёA-Za-z]/u.test(value)}));
+    const matches = s.match(/[А-Яа-яЁё]+(?:-[А-Яа-яЁё]+)*|[A-Za-z]+|[0-9]+|\s+|[^\s]/gu) || [];
+    return matches.map((value,i) => ({id:i, value, isWord:/^[А-Яа-яЁёA-Za-z0-9]/u.test(value)}));
   }
   function prepareLesson() {
     const lesson = lessons[lessonIndex];
@@ -42,6 +42,15 @@
       const found = tokens.filter(t => t.isWord && t.value.toLocaleLowerCase('ru-RU') === x.w.toLocaleLowerCase('ru-RU'));
       return found[x.n || 0]?.id ?? -1;
     };
+    // Explicit boundaries in data.js cover words, spaces and punctuation, including
+    // separate fragments of a main or subordinate clause interrupted by another.
+    tokenParts = new Map();
+    const fragments = (lesson.fragments || []).map(f => ({part:f.part, start:lookup(f.from)}));
+    fragments.forEach((f,i) => {
+      const end = fragments[i+1]?.start ?? tokens.length;
+      if(f.start<0 || end<=f.start || (i===0 && f.start!==0))throw new Error('Некорректные границы частей: '+lesson.id);
+      for(let id=f.start;id<end;id++)tokenParts.set(id,f.part);
+    });
     basisMap = new Map(); linksMap = new Map(); edgeMap = new Map(); phraseMap = new Map(); phraseGroups = new Map(); optionalPreps = new Set();
     lesson.parts.forEach(p => p.base.forEach(ref => {
       const idx = lookup(ref);
@@ -111,10 +120,10 @@
     const pos=lessonOrder.indexOf(lessonIndex);
     $('section-label').textContent=lessons[lessonIndex].teacherReview?'Особый случай · разбор с учителем':`Задание ${Math.max(0,pos)+1} из ${lessonOrder.length} · ${mode==='demo'?'объяснение':'самостоятельная работа'}`;
     $('kind-filter').value=activeFilter;
-    $('reshuffle').hidden=activeFilter!=='all';
+    $('reshuffle').hidden=!['all','oge'].includes(activeFilter);
     $('special-lesson').classList.toggle('active',Boolean(lessons[lessonIndex].teacherReview));
     $('level-label').textContent='Сложность '+'●'.repeat(lessons[lessonIndex].level)+'○'.repeat(3-lessons[lessonIndex].level);
-    renderList(); renderSteps(); renderInstruction(); renderNextPrompt(); renderColorTools(); renderSentence(); renderBoard(); renderSolution(); renderAnswerArea(); renderControls(); renderFeedback(); scheduleThreads();
+    renderSources(); renderList(); renderSteps(); renderInstruction(); renderNextPrompt(); renderColorTools(); renderSentence(); renderBoard(); renderSolution(); renderAnswerArea(); renderControls(); renderFeedback(); scheduleThreads();
   }
   function renderList() {
     const ids = visibleOrder().map(i=>({l:lessons[i],i}));
@@ -122,10 +131,18 @@
     $('lesson-list').innerHTML = ids.map(({l,i})=>{
       const p=progress[l.id];
       const text=l.text.length>31?l.text.slice(0,31)+'…':l.text;
-      return `<button class="lesson-item ${i===lessonIndex?'active':''} ${p?.done?'done':''}" data-index="${i}" type="button" title="${html(l.text)}"><span class="lesson-num">${p?.done?'✓':i+1}</span><span class="lesson-title">${html(text)}</span>${p?.hadError?'<span class="lesson-state" title="Были ошибки">•</span>':''}</button>`;
+      return `<button class="lesson-item ${i===lessonIndex?'active':''} ${p?.done?'done':''}" data-index="${i}" type="button" title="${html(l.text)}"><span class="lesson-num">${p?.done?'✓':l.source?.problemId||i+1}</span><span class="lesson-title">${html(text)}</span>${p?.hadError?'<span class="lesson-state" title="Были ошибки">•</span>':''}</button>`;
     }).join('');
     $('lesson-list').querySelectorAll('[data-index]').forEach(btn=>btn.addEventListener('click',()=>setLesson(+btn.dataset.index)));
     $('repeat-errors').textContent=reviewOnly?'← Все предложения этого вида':'↺ Повторить ошибки';
+  }
+  function renderSources() {
+    const source=lessons[lessonIndex].source;
+    const el=$('lesson-source');el.hidden=!source;
+    el.innerHTML=source?`ОГЭ · задание 3 · <a href="${html(source.url)}" target="_blank" rel="noopener noreferrer">№ ${source.problemId}</a> · предложение ${source.sentence}`:'';
+    const review=$('oge-review');review.hidden=activeFilter!=='oge';
+    const pending=window.OGE_REVIEW || [];
+    $('oge-review-list').innerHTML=pending.map(item=>`<li><a href="${html(item.url)}" target="_blank" rel="noopener noreferrer">№ ${item.problemId}</a> · предложение ${item.sentence}<p>${html(item.text)}</p><p>${html(item.reason)} Ответ исходного задания: <strong>${html(item.answer)}</strong>.</p></li>`).join('');
   }
   function renderSteps() {
     const s=currentStep();
@@ -188,6 +205,13 @@
   function renderSentence() {
     const target=$('sentence');target.innerHTML='';
     const st=currentStep(),isInteractive=((st<2 || (st===2 && state.showThreads)) && !state.revealed);
+    const mapping=partColors();
+    // Independent practice never reveals clause ownership before both checks pass.
+    // In the teaching mode the completed demonstration is the explicit reveal.
+    const highlight=(state.step>=2 && state.basesApproved) || state.revealed || (mode==='demo' && state.demoStage>=3);
+    function appendToken(parent,t,inPhrase=false) {
+      parent.append(t.isWord?wordButton(t,inPhrase):document.createTextNode(t.value));
+    }
     function wordButton(t,inPhrase=false) {
       const el=document.createElement('button');el.type='button';el.className='word';el.dataset.id=t.id;el.textContent=t.value;
       const mark=basisMark(t.id), lmark=linkMark(t.id);
@@ -210,18 +234,27 @@
       else {el.tabIndex=-1;el.style.cursor='default';}
       return el;
     }
+    let fragment=null, previousPart=null;
     for(let i=0;i<tokens.length;i++){
+      const part=tokenParts.get(i);
+      if(highlight && mapping[part] && (part!==previousPart || !fragment)){
+        fragment=document.createElement('span');fragment.className='clause-highlight';fragment.dataset.part=part;
+        fragment.dataset.color=mapping[part];
+        fragment.style.setProperty('--clause-fill',colors[mapping[part]].tone+'12');
+        target.append(fragment);
+      }
+      previousPart=part;
+      const container=highlight && mapping[part]?fragment:target;
       const phrase=phraseMap.get(i),marks=phrase?.ids.map(id=>linkMark(id));
       if(phrase && marks.every(m=>m && m.color===marks[0].color)){
         const wrapper=document.createElement('span');wrapper.className='link-phrase';
         wrapper.style.setProperty('--link-color',colors[marks[0].color].tone);
         wrapper.style.setProperty('--link-pale',colors[marks[0].color].pale);
-        for(let j=i;j<=phrase.end;j++)wrapper.append(tokens[j].isWord?wordButton(tokens[j],true):document.createTextNode(tokens[j].value));
-        target.append(wrapper);i=phrase.end;continue;
+        for(let j=i;j<=phrase.end;j++)appendToken(wrapper,tokens[j],true);
+        container.append(wrapper);i=phrase.end;continue;
       }
-      target.append(tokens[i].isWord?wordButton(tokens[i]):document.createTextNode(tokens[i].value));
+      appendToken(container,tokens[i]);
     }
-    const mapping=partColors();
     const drawn=(mode==='demo'||state.basesApproved||state.revealed)?lessons[lessonIndex].parts.filter(p=>mapping[p.id]):[];
     $('legend').innerHTML=drawn.map(p=>`<span class="legend-chip" style="--chip:${colors[mapping[p.id]].tone}">${html(p.title)}</span>`).join('') || '<span class="answer-note">'+(st===0?'Выдели подчинительные союзы и союзные слова.':'Выдели основы в цветах соответствующих союзов.')+'</span>';
   }
@@ -443,7 +476,7 @@
       usedColors.add(owners[p.id]);
     }
     const allCorrect=actual.size===expectedIds.length && incorrect.size===0 && distinct;
-    if(allCorrect){state.basesApproved=true;return true;}
+    if(allCorrect)return true;
     state.invalidBasis=incorrect;recordError();
     let msg='Проверь основы: выделено '+actual.size+' из '+expectedIds.length+' нужных слов.';
     if(incorrect.size)msg+=' Есть лишние слова или неверный вид подчёркивания. Цвета выделения не изменены.';
@@ -552,7 +585,7 @@
         </div>
         <div class="nest-caption">Вложение частей не меняет направления зависимости: стрелка идёт от опорного слова в первом придаточном ко второму.</div>
       </div>` : '';
-    el.innerHTML=`<div class="solution-top"><h2>Схема: ${html(names[l.kind])} подчинение</h2><div class="scheme-switch"><button data-layout="vertical" type="button" class="${schemeLayout==='vertical'?'active':''}">Вертикальная</button><button data-layout="horizontal" type="button" class="${schemeLayout==='horizontal'?'active':''}">Горизонтальная</button></div></div><div class="scheme-visual ${schemeLayout}">${graphic}</div><p class="solution-note">${html(l.note)}</p>${nested}`;
+    el.innerHTML=`<div class="solution-top"><h2>Схема: ${html(names[l.kind])} подчинение</h2><div class="scheme-switch"><button data-layout="vertical" type="button" class="${schemeLayout==='vertical'?'active':''}">Вертикальная</button><button data-layout="horizontal" type="button" class="${schemeLayout==='horizontal'?'active':''}">Горизонтальная</button></div></div><div class="scheme-visual ${schemeLayout}">${graphic}</div><p class="solution-note">${html(l.note)}</p>${l.source?`<details class="exam-answer"><summary>Ответ исходного задания ОГЭ № ${l.source.problemId}</summary><p>${html(l.source.claim)} — верно. Полный ответ задания 3: <strong>${html(l.source.answer)}</strong>.</p></details>`:''}${nested}`;
     el.querySelectorAll('[data-layout]').forEach(b=>b.addEventListener('click',()=>{schemeLayout=b.dataset.layout;renderSolution();}));
   }
   function showRules() { const d=$('rules-dialog');if(typeof d.showModal==='function')d.showModal();else d.setAttribute('open',''); }
@@ -586,16 +619,7 @@
   window.addEventListener('resize',()=>{if(showBoard() && !Object.keys(state.positions).length)renderBoard();else scheduleThreads();});
   if(typeof ResizeObserver!=='undefined'){new ResizeObserver(()=>scheduleThreads()).observe($('work-area'));}
   // Diagnostics for content review and browser smoke tests. Read-only.
-  window.NITI_DIAGNOSTICS={getLesson:()=>lessons[lessonIndex],getFilter:()=>activeFilter,getOrder:()=>[...lessonOrder],getState:()=>({...state}),tokens:()=>tokens.map(t=>({id:t.id,value:t.value})),getKeys:()=>({bases:[...basisMap.entries()],links:[...linksMap.entries()],edges:[...edgeMap.entries()],optionalPreps:[...optionalPreps]})};
-  // Текст правил обновляем программно: для публикации достаточно заменить app.js.
-  // В существующем index.html прежде был указан старый порядок шагов.
-  const rulesList=$('rules-dialog')?.querySelector('ol');
-  if(rulesList) rulesList.innerHTML=[
-    '<li><strong>Союзы.</strong> Выдели подчинительные союзы и союзные слова разными цветами.</li>',
-    '<li><strong>Основы.</strong> Выдели грамматические основы. Для каждой придаточной части используй цвет её союза или союзного слова.</li>',
-    '<li><strong>Схема.</strong> Выбери подходящую схему и определи вид подчинения. При желании распутай ниточки и задай вопросы.</li>',
-    '<li><strong>Тренировка.</strong> Выбери вид подчинения или «Всё вперемешку».</li>'
-  ].join('');
+  window.NITI_DIAGNOSTICS={getLesson:()=>lessons[lessonIndex],getFilter:()=>activeFilter,getOrder:()=>[...lessonOrder],getState:()=>({...state}),tokens:()=>tokens.map(t=>({id:t.id,value:t.value})),getKeys:()=>({bases:[...basisMap.entries()],links:[...linksMap.entries()],edges:[...edgeMap.entries()],optionalPreps:[...optionalPreps],tokenParts:[...tokenParts.entries()]})};
   buildOrder(true);
   setLesson(lessonOrder[0]);
 })();

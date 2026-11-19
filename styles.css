@@ -141,3 +141,15 @@
 @media(max-width:790px) {
   .thread-question {font-size: 17px; padding: 5px 7px; border-radius: 14px; }
 }
+
+/* Whole-clause backgrounds sit behind existing word underlines and link ovals.
+   Inline fragments may break on any space; each line gets its own pastel fill. */
+.clause-highlight{background:var(--clause-fill);border-radius:5px;padding:5px 0;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.lesson-source{font-size:14px;line-height:1.5;margin-top:10px;color:#76627e}
+.lesson-source a,.oge-review a{color:#663c85;text-underline-offset:3px}
+.oge-review{margin-top:24px;border:1px solid #ded0e4;border-radius:14px;background:#fff;padding:16px;line-height:1.6;font-size:16px}
+.oge-review[hidden],.lesson-source[hidden]{display:none}
+.oge-review summary,.exam-answer summary{cursor:pointer;font-weight:700}
+.oge-review li{margin:16px 0}.oge-review p{margin:8px 0}
+.exam-answer{margin-top:12px;font-size:15px;line-height:1.5}
+.lesson-num{width:auto;min-width:28px;flex-basis:auto;padding:0 4px}
